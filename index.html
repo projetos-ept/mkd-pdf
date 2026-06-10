@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MKD Conversor — CETEP-LNAB</title>
+
+<!-- Fontes institucionais: Poppins (títulos) + Nunito (corpo/UI) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+
+<!-- marked.js — Markdown → HTML no preview (sem chamadas de rede) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<!-- mermaid.js — diagramas no preview -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+
+<style>
+/* ════════════════════════════════════════════════════════════════
+   PALETA DA FERRAMENTA (UI) — azul institucional CETEP
+═════════════════════════════════════════════════════════════════ */
+:root {
+  --primaria:        #1e3a5f;
+  --primaria-media:  #2d5585;
+  --primaria-clara:  #e8eef6;
+  --superficie:      #f4f6f9;
+  --borda:           #cfd8e3;
+  --texto:           #2b2b2b;
+  --texto-suave:     #6b7a90;
+  --verde-ok:        #1b7e4b;
+  --verde-ok-bg:     #e3f4ea;
+  --vermelho-erro:   #c62828;
+  --vermelho-erro-bg:#fdecea;
+  --sombra:          0 2px 10px rgba(30,58,95,.10);
+
+  /* Paleta do documento (aproximação do template cetep.html) */
+  --doc-azul:        #004B8D;
+  --doc-azul-meio:   #006DBF;
+  --doc-azul-claro:  #D6E8F8;
+  --doc-verde:       #00925A;
+  --doc-verde-claro: #D0F0E3;
+  --doc-laranja:     #E8610A;
+  --doc-cinza-leve:  #F3F5F8;
+  --doc-roxo:        #6A1B9A;
+  --doc-roxo-claro:  #EDE7F6;
+  --doc-teal:        #00796B;
+  --doc-teal-claro:  #E0F2F1;
+  --doc-ambar:       #F57F17;
+  --doc-ambar-claro: #FFF8E1;
+  --doc-rosa:        #AD1457;
+  --doc-rosa-claro:  #FCE4EC;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+body {
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  color: var(--texto);
+  background: var(--superficie);
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 76px; /* espaço para a barra de status fixa */
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CABEÇALHO DA FERRAMENTA
+═════════════════════════════════════════════════════════════════ */
+.app-header {
+  background: var(--primaria);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 22px;
+  box-shadow: var(--sombra);
+}
+.app-header .logo-box {
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,.12);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+}
+.app-header .logo-box img { width: 36px; height: 36px; object-fit: contain; border-radius: 4px; }
+.app-header h1 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: .02em;
+}
+.app-header .subtitle { font-size: 12px; opacity: .75; }
+
+/* ════════════════════════════════════════════════════════════════
+   LAYOUT EM DUAS COLUNAS
+═════════════════════════════════════════════════════════════════ */
+.main {
+  display: grid;
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px 22px;
+  align-items: start;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+@media (max-width: 768px) {
+  .main { grid-template-columns: 1fr; padding: 14px; }
+  .panel-right { position: static !important; max-height: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PAINEL ESQUERDO — seções colapsáveis + editor
+═════════════════════════════════════════════════════════════════ */
+.panel-left { display: flex; flex-direction: column; gap: 14px; }
+
+details.secao {
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  box-shadow: var(--sombra);
+  overflow: hidden;
+}
+details.secao summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--primaria);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 12px 16px;
+  background: var(--primaria-clara);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+details.secao summary::-webkit-details-marker { display: none; }
+details.secao summary::before {
+  content: '▸';
+  font-size: 13px;
+  transition: transform .15s ease;
+}
+details.secao[open] summary::before { transform: rotate(90deg); }
+details.secao .secao-body { padding: 14px 16px 16px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.grid-2 .full { grid-column: 1 / -1; }
+
+.campo { display: flex; flex-direction: column; gap: 4px; }
+.campo label {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--primaria);
+}
+.campo input, .campo textarea {
+  font-family: 'Nunito', sans-serif;
+  font-size: 13.5px;
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  width: 100%;
+}
+.campo input:focus, .campo textarea:focus, #editor:focus {
+  outline: 2px solid var(--primaria-media);
+  outline-offset: 1px;
+  border-color: var(--primaria-media);
+}
+.campo .hint { font-size: 11px; color: var(--texto-suave); }
+
+/* Campo de senha com botão de olho */
+.campo .senha-wrap { position: relative; }
+.campo .senha-wrap input { padding-right: 38px; }
+.btn-olho {
+  position: absolute;
+  right: 4px; top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  line-height: 1;
+}
+.btn-olho:hover { background: var(--primaria-clara); }
+
+/* Botões genéricos */
+.btn {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--primaria);
+  padding: 8px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: background .12s ease;
+}
+.btn:hover { background: var(--primaria-clara); }
+.btn-primario {
+  background: var(--primaria);
+  border-color: var(--primaria);
+  color: #fff;
+}
+.btn-primario:hover { background: var(--primaria-media); }
+.btn-primario:disabled { opacity: .65; cursor: wait; }
+
+.feedback-salvo {
+  font-size: 12px;
+  color: var(--verde-ok);
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.feedback-salvo.visivel { opacity: 1; }
+
+/* ── Editor Markdown ─────────────────────────────────────────── */
+.editor-card {
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  box-shadow: var(--sombra);
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.editor-toolbar .titulo-editor {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--primaria);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+#editor {
+  width: 100%;
+  height: 40vh;
+  min-height: 180px;
+  resize: vertical;
+  font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--texto);
+  background: #fcfdfe;
+}
+
+#btn-converter { justify-content: center; font-size: 15px; padding: 12px 18px; }
+#erro-conversao {
+  color: var(--vermelho-erro);
+  font-size: 12.5px;
+  font-weight: 700;
+  display: none;
+  white-space: pre-wrap;
+}
+
+/* Spinner */
+.spinner {
+  width: 16px; height: 16px;
+  border: 2.5px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: girar .8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* ════════════════════════════════════════════════════════════════
+   PAINEL DIREITO — preview ao vivo
+═════════════════════════════════════════════════════════════════ */
+.panel-right {
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  box-shadow: var(--sombra);
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 110px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--borda);
+  background: var(--primaria-clara);
+  flex-shrink: 0;
+}
+.tab {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--texto-suave);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 11px 18px;
+  cursor: pointer;
+}
+.tab.ativa { color: var(--primaria); border-bottom-color: var(--primaria); background: #fff; }
+
+.tab-conteudo { overflow: auto; flex: 1; }
+.aba { display: none; }
+.aba.ativa { display: block; }
+
+/* ── Aba Código bruto ────────────────────────────────────────── */
+#aba-codigo { position: relative; }
+#btn-copiar-md {
+  position: absolute;
+  top: 10px; right: 14px;
+  z-index: 2;
+}
+#codigo-bruto {
+  margin: 0;
+  padding: 18px;
+  font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #1f2a3a;
+  background: #fcfdfe;
+  min-height: 200px;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PREVIEW DO DOCUMENTO — aproximação visual do template cetep.html
+═════════════════════════════════════════════════════════════════ */
+.doc-preview {
+  padding: 26px 32px 40px;
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: var(--texto);
+}
+
+/* Cabeçalho simulado do documento (badge + título) */
+.doc-preview .doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--doc-azul);
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 4px 14px 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+.doc-preview .doc-badge .dot { width: 8px; height: 8px; background: #FFE066; border-radius: 50%; }
+.doc-preview .doc-badge.apontamento { background: #3949AB; }
+.doc-preview .doc-titulo {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--doc-azul);
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+.doc-preview .doc-subtitulo { font-size: 14px; color: var(--texto-suave); margin-bottom: 18px; }
+
+.doc-preview h1 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 23px;
+  color: var(--doc-azul);
+  line-height: 1.25;
+  margin: 18px 0 8px;
+}
+.doc-preview h2 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--doc-azul);
+  margin: 28px 0 12px;
+  padding-bottom: 7px;
+  border-bottom: 2px solid var(--doc-azul-claro);
+}
+.doc-preview h3 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--doc-azul-meio);
+  margin: 18px 0 8px;
+  padding-left: 10px;
+  border-left: 3px solid var(--doc-verde);
+}
+.doc-preview h4 { font-family: 'Poppins', sans-serif; font-size: 13px; margin: 14px 0 6px; }
+
+.doc-preview p { margin-bottom: 12px; text-align: justify; }
+.doc-preview strong { color: var(--doc-azul); font-weight: 700; }
+.doc-preview em { color: #444; }
+.doc-preview a { color: var(--doc-azul-meio); text-decoration: underline; }
+
+.doc-preview ul { list-style: none; padding-left: 0; margin: 10px 0 16px; }
+.doc-preview ul li {
+  padding: 7px 10px 7px 32px;
+  position: relative;
+  margin-bottom: 5px;
+  background: var(--doc-cinza-leve);
+  border-radius: 6px;
+}
+.doc-preview ul li::before {
+  content: '\203A';
+  position: absolute; left: 12px; top: 4px;
+  font-size: 18px;
+  color: var(--doc-verde);
+  font-weight: 900;
+}
+.doc-preview ol { padding-left: 22px; margin: 10px 0 16px; }
+.doc-preview ol li { margin-bottom: 8px; }
+.doc-preview ol li::marker { color: var(--doc-azul); font-weight: 700; }
+
+.doc-preview blockquote {
+  background: var(--doc-ambar-claro);
+  border-left: 5px solid var(--doc-laranja);
+  border-radius: 0 8px 8px 0;
+  padding: 13px 16px;
+  margin: 16px 0;
+}
+.doc-preview blockquote p { margin: 0; text-align: left; }
+
+/* Tabelas com bordas finas */
+.doc-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.doc-preview thead th {
+  background: var(--doc-azul);
+  color: #fff;
+  padding: 9px 13px;
+  text-align: left;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+}
+.doc-preview td, .doc-preview th { border: 1px solid #e3e8f0; padding: 8px 13px; vertical-align: top; }
+.doc-preview tbody tr:nth-child(even) td { background: var(--doc-azul-claro); }
+
+.doc-preview code {
+  background: #eef2f7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: var(--doc-azul);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+.doc-preview pre {
+  background: #f4f4f4;
+  border: 1px solid #ddd;
+  border-left: 4px solid var(--doc-azul);
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-size: 12.5px;
+  border-radius: 0 6px 6px 0;
+  margin: 14px 0;
+}
+.doc-preview pre code { background: none; padding: 0; color: inherit; }
+
+.doc-preview hr { border: none; border-top: 2px solid var(--doc-azul-claro); margin: 26px 0; }
+.doc-preview img { max-width: 100%; height: auto; border-radius: 6px; margin: 12px 0; display: block; }
+.doc-preview figure { margin: 16px 0; text-align: center; }
+.doc-preview figcaption { font-size: 12px; color: var(--texto-suave); font-style: italic; }
+
+/* Placeholder de imagem quebrada (404 / CORS) */
+.doc-preview .img-quebrada {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e6ec;
+  border: 1px dashed #aab4c2;
+  border-radius: 6px;
+  color: var(--texto-suave);
+  font-size: 12.5px;
+  font-style: italic;
+  min-height: 90px;
+  padding: 14px;
+  margin: 12px 0;
+  text-align: center;
+}
+
+/* Diagramas Mermaid */
+.doc-preview .mermaid {
+  background: var(--doc-cinza-leve);
+  border: 1.5px dashed #b0bdd4;
+  border-radius: 10px;
+  padding: 18px 12px;
+  margin: 16px 0;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+.doc-preview .mermaid svg { max-width: 100%; height: auto; }
+
+/* ── Blocos especiais ::: (fenced divs) ──────────────────────── */
+.doc-preview .bloco {
+  border-radius: 0 8px 8px 0;
+  padding: 14px 18px;
+  margin: 16px 0;
+}
+.doc-preview .bloco::before {
+  display: block;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 6px;
+}
+.doc-preview .bloco p { margin: 0 0 8px; text-align: left; }
+.doc-preview .bloco p:last-child { margin-bottom: 0; }
+
+.doc-preview .conceito { background: var(--doc-azul-claro); border-left: 5px solid var(--doc-azul); }
+.doc-preview .conceito::before { content: 'CONCEITO-CHAVE'; color: var(--doc-azul); }
+
+.doc-preview .dica { background: var(--doc-ambar-claro); border-left: 5px solid var(--doc-laranja); }
+.doc-preview .dica::before { content: '\2605\00A0 DICA DE OURO'; color: var(--doc-laranja); }
+
+.doc-preview .atencao { background: #FFF0F0; border-left: 5px solid #D32F2F; }
+.doc-preview .atencao::before { content: '! \00A0ATENÇÃO'; color: #D32F2F; }
+
+.doc-preview .exemplo { background: var(--doc-verde-claro); border-left: 5px solid var(--doc-verde); }
+.doc-preview .exemplo::before { content: 'Ex \00A0EXEMPLO PRÁTICO'; color: var(--doc-verde); }
+
+.doc-preview .reflexao {
+  background: var(--doc-roxo-claro);
+  border: 2px dashed var(--doc-roxo);
+  border-left: 5px solid var(--doc-roxo);
+  border-radius: 8px;
+}
+.doc-preview .reflexao::before { content: '\2736\00A0 CONVITE À REFLEXÃO'; color: var(--doc-roxo); }
+.doc-preview .reflexao p + p { padding-top: 8px; border-top: 1px dashed rgba(106,27,154,.25); }
+
+.doc-preview .saibamais { background: var(--doc-teal-claro); border-left: 5px solid var(--doc-teal); }
+.doc-preview .saibamais::before { content: '+ \00A0SAIBA MAIS'; color: var(--doc-teal); }
+
+.doc-preview .exercicios { background: var(--doc-ambar-claro); border-left: 5px solid var(--doc-ambar); }
+.doc-preview .exercicios::before { content: '\270E\00A0 EXERCÍCIOS DE FIXAÇÃO'; color: var(--doc-ambar); }
+.doc-preview .exercicios ul li { background: rgba(245,127,23,.12); }
+
+.doc-preview .leitura { background: var(--doc-rosa-claro); border-left: 5px solid var(--doc-rosa); }
+.doc-preview .leitura::before { content: '\1F4D6\00A0 LEITURA RECOMENDADA'; color: var(--doc-rosa); }
+
+.doc-preview .referencias {
+  background: var(--doc-cinza-leve);
+  border-radius: 8px;
+  border-left: none;
+  font-size: 12.5px;
+  color: var(--texto-suave);
+}
+.doc-preview .referencias::before { content: 'BIBLIOGRAFIA CONSULTADA'; color: var(--doc-azul); }
+.doc-preview .referencias p { color: var(--texto-suave); }
+
+/* ════════════════════════════════════════════════════════════════
+   BARRA DE STATUS / RESULTADO (fixa no rodapé)
+═════════════════════════════════════════════════════════════════ */
+.status-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #fff;
+  border-top: 1px solid var(--borda);
+  box-shadow: 0 -2px 12px rgba(30,58,95,.10);
+  padding: 12px 22px;
+  display: none;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  z-index: 50;
+  font-size: 13.5px;
+}
+.status-bar.visivel { display: flex; }
+.status-bar.sucesso { background: var(--verde-ok-bg); border-top-color: var(--verde-ok); }
+.status-bar.erro    { background: var(--vermelho-erro-bg); border-top-color: var(--vermelho-erro); }
+
+.status-bar .status-texto { font-weight: 700; }
+.status-bar.sucesso .status-texto { color: var(--verde-ok); }
+.status-bar.erro .status-texto { color: var(--vermelho-erro); white-space: pre-wrap; }
+
+.status-bar a.url-resultado {
+  color: var(--primaria);
+  font-weight: 700;
+  word-break: break-all;
+}
+.status-bar .acoes { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+/* Barra de progresso indeterminada */
+.progresso {
+  flex: 1;
+  min-width: 120px;
+  max-width: 340px;
+  height: 6px;
+  background: var(--primaria-clara);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.progresso::after {
+  content: '';
+  position: absolute;
+  left: -40%;
+  width: 40%; height: 100%;
+  background: var(--primaria);
+  border-radius: 3px;
+  animation: deslizar 1.2s ease-in-out infinite;
+}
+@keyframes deslizar {
+  0%   { left: -40%; }
+  100% { left: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ CABEÇALHO DA FERRAMENTA ═══════════════ -->
+<header class="app-header">
+  <div class="logo-box" id="logo-box">
+    <img src="https://raw.githubusercontent.com/projetos-ept/images/main/marktext/logo-cetep-lnab.png"
+         alt="Logo CETEP-LNAB"
+         onerror="this.remove(); document.getElementById('logo-box').textContent='C';">
+  </div>
+  <div>
+    <h1>MKD Conversor</h1>
+    <div class="subtitle">Markdown &rarr; PDF/HTML &middot; CETEP-LNAB &middot; mkd-pandoc + SML Storage</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- ═══════════════ PAINEL ESQUERDO ═══════════════ -->
+  <div class="panel-left">
+
+    <!-- ── Seção 1: Conexão ── -->
+    <details class="secao" open id="secao-conexao">
+      <summary>Conexão</summary>
+      <div class="secao-body">
+        <div class="grid-2">
+          <div class="campo full">
+            <label for="cfg-endpoint">Endpoint da API</label>
+            <input type="url" id="cfg-endpoint" placeholder="http://localhost:8000">
+          </div>
+          <div class="campo full">
+            <label for="cfg-apikey">API Key (mkd-pandoc)</label>
+            <div class="senha-wrap">
+              <input type="password" id="cfg-apikey" autocomplete="off">
+              <button type="button" class="btn-olho" data-alvo="cfg-apikey" title="Revelar/ocultar">&#x1F441;</button>
+            </div>
+          </div>
+          <div class="campo full">
+            <label for="cfg-sml-endpoint">SML Storage Endpoint</label>
+            <input type="url" id="cfg-sml-endpoint" placeholder="https://us-east1-sml-storage.cloudfunctions.net">
+          </div>
+          <div class="campo">
+            <label for="cfg-sml-apikey">SML API Key</label>
+            <div class="senha-wrap">
+              <input type="password" id="cfg-sml-apikey" autocomplete="off">
+              <button type="button" class="btn-olho" data-alvo="cfg-sml-apikey" title="Revelar/ocultar">&#x1F441;</button>
+            </div>
+          </div>
+          <div class="campo">
+            <label for="cfg-sml-projeto">SML Projeto</label>
+            <input type="text" id="cfg-sml-projeto" placeholder="mkd-pandoc">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
+          <button type="button" class="btn" id="btn-salvar-config">Salvar configurações</button>
+          <span class="feedback-salvo" id="feedback-salvo">&#x2713; Salvo</span>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Seção 2: Cabeçalho do documento ── -->
+    <details class="secao" open>
+      <summary>Cabeçalho do documento</summary>
+      <div class="secao-body">
+        <div class="grid-2">
+          <div class="campo">
+            <label for="fm-turma">Turma</label>
+            <input type="text" id="fm-turma" data-fm="turma" placeholder="1TACM1-M2">
+          </div>
+          <div class="campo">
+            <label for="fm-disciplina">Disciplina</label>
+            <input type="text" id="fm-disciplina" data-fm="disciplina" placeholder="Parasitologia">
+          </div>
+          <div class="campo">
+            <label for="fm-professor">Professor</label>
+            <input type="text" id="fm-professor" data-fm="professor" placeholder="Lucas Batista">
+          </div>
+          <div class="campo">
+            <label for="fm-ano">Ano</label>
+            <input type="text" id="fm-ano" data-fm="ano" placeholder="2025">
+          </div>
+          <div class="campo">
+            <label for="fm-capitulo">Capítulo (nº)</label>
+            <input type="text" id="fm-capitulo" data-fm="capitulo" placeholder="1">
+            <span class="hint">Exclusivo com Apontamento</span>
+          </div>
+          <div class="campo">
+            <label for="fm-apontamento">Apontamento</label>
+            <input type="text" id="fm-apontamento" data-fm="apontamento" placeholder="Resumo">
+            <span class="hint">Exclusivo com Capítulo</span>
+          </div>
+          <div class="campo full">
+            <label for="fm-titulo">Título</label>
+            <input type="text" id="fm-titulo" data-fm="titulo" placeholder="O que é Parasitologia?">
+          </div>
+          <div class="campo full">
+            <label for="fm-subtitulo">Subtítulo</label>
+            <input type="text" id="fm-subtitulo" data-fm="subtitulo" placeholder="Conceitos e classificação">
+          </div>
+          <div class="campo">
+            <label for="fm-unidade">Unidade</label>
+            <input type="text" id="fm-unidade" data-fm="unidade" placeholder="Unidade 1">
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Seção 3: Rodapé do documento ── -->
+    <details class="secao" open>
+      <summary>Rodapé do documento</summary>
+      <div class="secao-body">
+        <div class="grid-2">
+          <div class="campo full">
+            <label for="fm-rodape1">Linha 1 (rodapé topo)</label>
+            <input type="text" id="fm-rodape1">
+          </div>
+          <div class="campo full">
+            <label for="fm-rodape2">Linha 2 (rodapé centro)</label>
+            <input type="text" id="fm-rodape2">
+          </div>
+          <div class="campo full">
+            <label for="fm-rodape3">Linha 3 (rodapé base)</label>
+            <input type="text" id="fm-rodape3">
+            <span class="hint">Preenchidas automaticamente pelos campos de cabeçalho.
+              Digite para sobrescrever (vira <code>rodape1/2/3</code> no YAML).</span>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Seção 4: Editor Markdown ── -->
+    <div class="editor-card">
+      <div class="editor-toolbar">
+        <span class="titulo-editor">Editor Markdown</span>
+        <button type="button" class="btn" id="btn-alternar-codigo" title="Alternar entre Preview e Código bruto">
+          <span style="font-family:Consolas,monospace;">&lt;/&gt;</span> Código
+        </button>
+      </div>
+      <textarea id="editor" spellcheck="false"
+        placeholder="Cole aqui o seu Markdown (com ou sem bloco YAML)&hellip;"></textarea>
+
+      <!-- ── Seção 5: Botão Converter ── -->
+      <button type="button" class="btn btn-primario" id="btn-converter">
+        <span id="btn-converter-rotulo">Converter para PDF</span>
+      </button>
+      <div id="erro-conversao"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PAINEL DIREITO — PREVIEW ═══════════════ -->
+  <div class="panel-right">
+    <div class="tabs">
+      <button type="button" class="tab ativa" data-aba="aba-preview">Preview</button>
+      <button type="button" class="tab" data-aba="aba-codigo">Código bruto</button>
+    </div>
+    <div class="tab-conteudo">
+      <div class="aba ativa" id="aba-preview">
+        <div class="doc-preview" id="preview"></div>
+      </div>
+      <div class="aba" id="aba-codigo">
+        <button type="button" class="btn" id="btn-copiar-md">Copiar</button>
+        <pre id="codigo-bruto"><code id="codigo-bruto-code"></code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ BARRA DE STATUS / RESULTADO ═══════════════ -->
+<div class="status-bar" id="status-bar">
+  <span class="status-texto" id="status-texto"></span>
+  <div class="progresso" id="status-progresso" style="display:none;"></div>
+  <a class="url-resultado" id="status-url" target="_blank" rel="noopener" style="display:none;"></a>
+  <div class="acoes" id="status-acoes"></div>
+</div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════
+   CONSTANTES E ESTADO
+═════════════════════════════════════════════════════════════════ */
+const PADROES = {
+  endpoint:    'http://localhost:8000',
+  smlEndpoint: 'https://us-east1-sml-storage.cloudfunctions.net',
+  smlProjeto:  'mkd-pandoc'
+};
+const CAMPOS_FM = ['turma', 'disciplina', 'professor', 'capitulo',
+                   'apontamento', 'titulo', 'subtitulo', 'unidade', 'ano'];
+const DEBOUNCE_MS = 600;
+
+const $ = (id) => document.getElementById(id);
+const editor = $('editor');
+
+// Campos editados manualmente: o valor digitado sobrepõe o YAML colado.
+const camposSujos = new Set();
+const rodapesSujos = new Set();
+
+// Último PDF gerado (Blob) — usado pelo botão Download.
+let ultimoPdf = null;
+let ultimoNomeArquivo = 'documento.pdf';
+let contadorMermaid = 0;
+
+/* ════════════════════════════════════════════════════════════════
+   CONFIGURAÇÃO (localStorage: mkd_config)
+═════════════════════════════════════════════════════════════════ */
+function carregarConfig() {
+  let cfg = {};
+  try { cfg = JSON.parse(localStorage.getItem('mkd_config') || '{}'); } catch (e) {}
+  $('cfg-endpoint').value     = cfg.endpoint    || '';
+  $('cfg-apikey').value       = cfg.apiKey      || '';
+  $('cfg-sml-endpoint').value = cfg.smlEndpoint || '';
+  $('cfg-sml-apikey').value   = cfg.smlApiKey   || '';
+  $('cfg-sml-projeto').value  = cfg.smlProjeto  || '';
+}
+
+function salvarConfig() {
+  localStorage.setItem('mkd_config', JSON.stringify({
+    endpoint:    $('cfg-endpoint').value.trim(),
+    apiKey:      $('cfg-apikey').value.trim(),
+    smlEndpoint: $('cfg-sml-endpoint').value.trim(),
+    smlApiKey:   $('cfg-sml-apikey').value.trim(),
+    smlProjeto:  $('cfg-sml-projeto').value.trim()
+  }));
+  const fb = $('feedback-salvo');
+  fb.classList.add('visivel');
+  setTimeout(() => fb.classList.remove('visivel'), 1800);
+}
+
+function configAtual() {
+  return {
+    endpoint:    ($('cfg-endpoint').value.trim()     || PADROES.endpoint).replace(/\/+$/, ''),
+    apiKey:       $('cfg-apikey').value.trim(),
+    smlEndpoint: ($('cfg-sml-endpoint').value.trim() || PADROES.smlEndpoint).replace(/\/+$/, ''),
+    smlApiKey:    $('cfg-sml-apikey').value.trim(),
+    smlProjeto:   $('cfg-sml-projeto').value.trim()  || PADROES.smlProjeto
+  };
+}
+
+/* Olhinho dos campos de senha */
+document.querySelectorAll('.btn-olho').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const alvo = $(btn.dataset.alvo);
+    alvo.type = (alvo.type === 'password') ? 'text' : 'password';
+  });
+});
+
+/* ════════════════════════════════════════════════════════════════
+   FRONT MATTER YAML — leitura, geração e fusão
+═════════════════════════════════════════════════════════════════ */
+const RE_YAML = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/;
+
+function lerFrontMatter(md) {
+  const m = md.match(RE_YAML);
+  if (!m) return {};
+  const dados = {};
+  m[1].split(/\r?\n/).forEach((linha) => {
+    const par = linha.match(/^([A-Za-z_][\w-]*)\s*:\s*(.*)$/);
+    if (!par) return;
+    let valor = par[2].trim();
+    if ((valor.startsWith('"') && valor.endsWith('"')) ||
+        (valor.startsWith("'") && valor.endsWith("'"))) {
+      valor = valor.slice(1, -1);
+    }
+    dados[par[1]] = valor;
+  });
+  return dados;
+}
+
+function aspas(v) { return '"' + String(v).replace(/"/g, '\\"') + '"'; }
+
+function camposAtuais() {
+  const c = {};
+  CAMPOS_FM.forEach((nome) => { c[nome] = $('fm-' + nome).value.trim(); });
+  ['rodape1', 'rodape2', 'rodape3'].forEach((nome) => {
+    c[nome] = rodapesSujos.has(nome) ? $('fm-' + nome).value.trim() : '';
+  });
+  return c;
+}
+
+function buildFrontMatter(f) {
+  const linhas = ['---'];
+  if (f.turma)       linhas.push('turma: ' + f.turma);
+  if (f.disciplina)  linhas.push('disciplina: ' + f.disciplina);
+  if (f.professor)   linhas.push('professor: ' + f.professor);
+  if (f.capitulo && !f.apontamento)
+                     linhas.push('capitulo: ' + aspas(f.capitulo));
+  if (f.apontamento && !f.capitulo)
+                     linhas.push('apontamento: ' + aspas(f.apontamento));
+  if (f.titulo)      linhas.push('titulo: ' + aspas(f.titulo));
+  if (f.subtitulo)   linhas.push('subtitulo: ' + aspas(f.subtitulo));
+  if (f.unidade)     linhas.push('unidade: ' + f.unidade);
+  if (f.ano)         linhas.push('ano: ' + aspas(f.ano));
+  if (f.rodape1)     linhas.push('rodape1: ' + aspas(f.rodape1));
+  if (f.rodape2)     linhas.push('rodape2: ' + aspas(f.rodape2));
+  if (f.rodape3)     linhas.push('rodape3: ' + aspas(f.rodape3));
+  linhas.push('---');
+  return linhas.join('\n');
+}
+
+function mergeMarkdown(rawMd, fields) {
+  const semYaml = rawMd.replace(RE_YAML, '');
+  return buildFrontMatter(fields) + '\n\n' + semYaml.replace(/^\s*\n/, '');
+}
+
+/* Preenche os campos do cabeçalho com o YAML colado (sem sobrepor
+   campos editados manualmente). */
+function sincronizarCamposComYaml() {
+  const yaml = lerFrontMatter(editor.value);
+  CAMPOS_FM.forEach((nome) => {
+    if (camposSujos.has(nome)) return;
+    // capitulo e apontamento são exclusivos: se o YAML trouxer os dois,
+    // capitulo vence.
+    if (nome === 'apontamento' && yaml.capitulo) { $('fm-apontamento').value = ''; return; }
+    $('fm-' + nome).value = yaml[nome] !== undefined ? yaml[nome] : '';
+  });
+  ['rodape1', 'rodape2', 'rodape3'].forEach((nome) => {
+    if (rodapesSujos.has(nome)) return;
+    if (yaml[nome] !== undefined) {
+      $('fm-' + nome).value = yaml[nome];
+      rodapesSujos.add(nome);   // valor explícito no YAML conta como customizado
+    }
+  });
+  atualizarRodapesAuto();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RODAPÉS AUTOMÁTICOS (linhas montadas a partir do cabeçalho)
+═════════════════════════════════════════════════════════════════ */
+function linhasRodapeAuto(f) {
+  const j = (partes, sep) => partes.filter(Boolean).join(sep);
+  return {
+    rodape1: 'CENTRO TERRITORIAL DE EDUCAÇÃO PROFISSIONAL DO LITORAL NORTE E AGRESTE BAIANO — CETEP-LNAB',
+    rodape2: j([
+      f.turma      && ('Turma: ' + f.turma),
+      f.disciplina && ('Disciplina: ' + f.disciplina),
+      f.professor  && ('Prof.: ' + f.professor),
+      f.ano
+    ], ' · '),
+    rodape3: j(['CETEP-LNAB', f.disciplina, f.unidade], ' · ') +
+             (f.professor ? ' © ' + f.professor : '') +
+             (f.ano ? ' · ' + f.ano : '')
+  };
+}
+
+function atualizarRodapesAuto() {
+  const auto = linhasRodapeAuto(camposAtuais());
+  ['rodape1', 'rodape2', 'rodape3'].forEach((nome) => {
+    const input = $('fm-' + nome);
+    input.placeholder = auto[nome];
+    if (!rodapesSujos.has(nome)) input.value = '';
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PREVIEW AO VIVO — marked.js + mermaid.js (100% local, sem API)
+═════════════════════════════════════════════════════════════════ */
+marked.use({ gfm: true, breaks: false });
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  securityLevel: 'loose',
+  themeVariables: {
+    primaryColor:       '#D6E8F8',
+    primaryBorderColor: '#004B8D',
+    primaryTextColor:   '#004B8D',
+    lineColor:          '#b0bdd4',
+    secondaryColor:     '#D0F0E3',
+    tertiaryColor:      '#FFF9C4',
+    fontFamily:         'Nunito, sans-serif',
+    fontSize:           '13px'
+  }
+});
+
+const BLOCOS_VALIDOS = ['conceito', 'dica', 'atencao', 'exemplo', 'reflexao',
+                        'saibamais', 'exercicios', 'leitura', 'referencias'];
+
+/* Converte os fenced divs do Pandoc (::: classe ... :::) em <div>,
+   renderizando o miolo com marked. Blocos ``` são respeitados para
+   que ::: dentro de código não seja interpretado. */
+function renderizarComBlocos(md) {
+  const linhas = md.split('\n');
+  let html = '';
+  let buffer = [];
+  let abertos = 0;
+  let dentroDeCodigo = false;
+
+  const despejar = () => {
+    if (buffer.length) { html += marked.parse(buffer.join('\n')); buffer = []; }
+  };
+
+  for (const linha of linhas) {
+    if (/^\s*(```|~~~)/.test(linha)) dentroDeCodigo = !dentroDeCodigo;
+    if (!dentroDeCodigo) {
+      const abre = linha.match(/^:{3,}\s*\{?\.?([A-Za-z][\w-]*)\}?\s*$/);
+      const fecha = /^:{3,}\s*$/.test(linha);
+      if (abre) {
+        const classe = abre[1].toLowerCase();
+        despejar();
+        abertos++;
+        html += '<div class="bloco ' + (BLOCOS_VALIDOS.includes(classe) ? classe : 'conceito') + '">';
+        continue;
+      }
+      if (fecha && abertos > 0) {
+        despejar();
+        abertos--;
+        html += '</div>';
+        continue;
+      }
+    }
+    buffer.push(linha);
+  }
+  despejar();
+  while (abertos-- > 0) html += '</div>';
+  return html;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+}
+
+/* Cabeçalho simulado do documento (badge + título + subtítulo) */
+function cabecalhoPreview(f) {
+  let h = '';
+  if (f.capitulo && !f.apontamento) {
+    h += '<div class="doc-badge"><span class="dot"></span>Capítulo ' + escapeHtml(f.capitulo) + '</div>';
+  } else if (f.apontamento) {
+    h += '<div class="doc-badge apontamento">&#x1F4DD; ' + escapeHtml(f.apontamento) + '</div>';
+  }
+  if (f.titulo)    h += '<div class="doc-titulo">' + escapeHtml(f.titulo) + '</div>';
+  if (f.subtitulo) h += '<div class="doc-subtitulo">' + escapeHtml(f.subtitulo) + '</div>';
+  return h;
+}
+
+function atualizarPreview() {
+  const corpo = editor.value.replace(RE_YAML, '');
+  const alvo = $('preview');
+  alvo.innerHTML = cabecalhoPreview(camposAtuais()) + renderizarComBlocos(corpo);
+
+  // Imagens quebradas (404 / CORS) → placeholder cinza com o alt
+  alvo.querySelectorAll('img').forEach((img) => {
+    const substituir = () => {
+      const ph = document.createElement('div');
+      ph.className = 'img-quebrada';
+      ph.textContent = '🖼 ' + (img.alt || 'imagem indisponível');
+      img.replaceWith(ph);
+    };
+    if (img.complete && img.naturalWidth === 0 && img.src) substituir();
+    else img.addEventListener('error', substituir, { once: true });
+  });
+
+  // Blocos ```mermaid → <div class="mermaid"> renderizado
+  const pendentes = [];
+  alvo.querySelectorAll('pre code.language-mermaid, pre code.mermaid').forEach((code) => {
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.id = 'mmd-' + (++contadorMermaid);
+    div.textContent = code.textContent;
+    code.parentElement.replaceWith(div);
+    pendentes.push(div);
+  });
+  if (pendentes.length) {
+    mermaid.run({ nodes: pendentes }).catch(() => {
+      pendentes.forEach((d) => {
+        if (!d.querySelector('svg')) {
+          d.innerHTML = '<em style="color:var(--vermelho-erro);font-size:12px;">Erro de sintaxe no diagrama Mermaid</em>';
+        }
+      });
+    });
+  }
+}
+
+function atualizarCodigoBruto() {
+  $('codigo-bruto-code').textContent = editor.value;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ABAS (Preview | Código bruto)
+═════════════════════════════════════════════════════════════════ */
+function ativarAba(idAba) {
+  document.querySelectorAll('.tab').forEach((t) =>
+    t.classList.toggle('ativa', t.dataset.aba === idAba));
+  document.querySelectorAll('.aba').forEach((a) =>
+    a.classList.toggle('ativa', a.id === idAba));
+}
+document.querySelectorAll('.tab').forEach((t) =>
+  t.addEventListener('click', () => ativarAba(t.dataset.aba)));
+
+$('btn-alternar-codigo').addEventListener('click', () => {
+  const codigoAtivo = $('aba-codigo').classList.contains('ativa');
+  ativarAba(codigoAtivo ? 'aba-preview' : 'aba-codigo');
+});
+
+$('btn-copiar-md').addEventListener('click', async () => {
+  await copiarTexto(editor.value);
+  const btn = $('btn-copiar-md');
+  btn.textContent = '✓ Copiado';
+  setTimeout(() => { btn.textContent = 'Copiar'; }, 1500);
+});
+
+async function copiarTexto(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+  } catch (e) {
+    // Fallback para file:// ou contextos sem Clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   EVENTOS DO EDITOR E DOS CAMPOS
+═════════════════════════════════════════════════════════════════ */
+let timerDebounce = null;
+editor.addEventListener('input', () => {
+  clearTimeout(timerDebounce);
+  timerDebounce = setTimeout(() => {
+    localStorage.setItem('mkd_last_md', editor.value);
+    sincronizarCamposComYaml();
+    atualizarPreview();
+    atualizarCodigoBruto();
+  }, DEBOUNCE_MS);
+});
+
+CAMPOS_FM.forEach((nome) => {
+  $('fm-' + nome).addEventListener('input', () => {
+    camposSujos.add(nome);
+    // capitulo ↔ apontamento: mutuamente exclusivos
+    if (nome === 'capitulo' && $('fm-capitulo').value.trim()) {
+      $('fm-apontamento').value = '';
+      camposSujos.add('apontamento');
+    }
+    if (nome === 'apontamento' && $('fm-apontamento').value.trim()) {
+      $('fm-capitulo').value = '';
+      camposSujos.add('capitulo');
+    }
+    atualizarRodapesAuto();
+    atualizarPreview();
+  });
+});
+
+['rodape1', 'rodape2', 'rodape3'].forEach((nome) => {
+  $('fm-' + nome).addEventListener('input', () => {
+    if ($('fm-' + nome).value.trim()) rodapesSujos.add(nome);
+    else rodapesSujos.delete(nome);
+  });
+});
+
+$('btn-salvar-config').addEventListener('click', salvarConfig);
+
+/* ════════════════════════════════════════════════════════════════
+   BARRA DE STATUS
+═════════════════════════════════════════════════════════════════ */
+const statusBar = $('status-bar');
+
+function statusOcioso() {
+  statusBar.className = 'status-bar';
+  statusBar.classList.remove('visivel');
+}
+
+function statusProgresso(texto) {
+  statusBar.className = 'status-bar visivel';
+  $('status-texto').textContent = texto;
+  $('status-progresso').style.display = '';
+  $('status-url').style.display = 'none';
+  $('status-acoes').innerHTML = '';
+}
+
+function botaoAcao(rotulo, fn) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'btn';
+  b.textContent = rotulo;
+  b.addEventListener('click', fn);
+  return b;
+}
+
+function statusSucesso(url, tamanho) {
+  statusBar.className = 'status-bar visivel sucesso';
+  $('status-texto').textContent = '✓ PDF gerado — ' + formatarTamanho(tamanho);
+  $('status-progresso').style.display = 'none';
+  const a = $('status-url');
+  if (url) { a.href = url; a.textContent = url; a.style.display = ''; }
+  else a.style.display = 'none';
+
+  const acoes = $('status-acoes');
+  acoes.innerHTML = '';
+  acoes.appendChild(botaoAcao('Download', baixarUltimoPdf));
+  if (url) {
+    acoes.appendChild(botaoAcao('Copiar link', async (ev) => {
+      await copiarTexto(url);
+      ev.target.textContent = '✓ Copiado';
+      setTimeout(() => { ev.target.textContent = 'Copiar link'; }, 1500);
+    }));
+    acoes.appendChild(botaoAcao('Abrir', () => window.open(url, '_blank', 'noopener')));
+  }
+}
+
+function statusErro(mensagem) {
+  statusBar.className = 'status-bar visivel erro';
+  $('status-texto').textContent = '✕ ' + mensagem;
+  $('status-progresso').style.display = 'none';
+  $('status-url').style.display = 'none';
+  const acoes = $('status-acoes');
+  acoes.innerHTML = '';
+  if (ultimoPdf) acoes.appendChild(botaoAcao('Download do PDF', baixarUltimoPdf));
+  acoes.appendChild(botaoAcao('Tentar novamente', converter));
+}
+
+function baixarUltimoPdf() {
+  if (!ultimoPdf) return;
+  const url = URL.createObjectURL(ultimoPdf);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = ultimoNomeArquivo;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function formatarTamanho(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CONVERSÃO + UPLOAD (somente no clique do botão)
+   1. POST {endpoint}/converter            → bytes do PDF
+   2. POST {sml}/getUploadUrl              → { uploadUrl, docId }
+   3. PUT  uploadUrl  (application/pdf)
+   4. POST {sml}/confirmUpload             → { url, size }
+═════════════════════════════════════════════════════════════════ */
+function slug(texto) {
+  return (texto || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'documento';
+}
+
+async function lerErroHttp(resposta, contexto) {
+  let detalhe = 'HTTP ' + resposta.status;
+  try {
+    const corpo = await resposta.text();
+    try {
+      const json = JSON.parse(corpo);
+      detalhe = json.detail || json.error || corpo;
+    } catch (e) { if (corpo) detalhe = corpo; }
+  } catch (e) {}
+  if (typeof detalhe !== 'string') detalhe = JSON.stringify(detalhe);
+  return contexto + ': ' + detalhe.slice(0, 600);
+}
+
+async function converter() {
+  const cfg = configAtual();
+  const campos = camposAtuais();
+  const btn = $('btn-converter');
+  const rotulo = $('btn-converter-rotulo');
+  const erroEl = $('erro-conversao');
+
+  erroEl.style.display = 'none';
+  erroEl.textContent = '';
+
+  if (!editor.value.trim()) {
+    erroEl.textContent = 'O editor está vazio — cole o Markdown antes de converter.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  // 1. Markdown final: YAML reconstruído a partir dos campos da interface
+  const markdownFinal = mergeMarkdown(editor.value, campos);
+  ultimoNomeArquivo = slug(campos.titulo) + '.pdf';
+  ultimoPdf = null;
+
+  btn.disabled = true;
+  rotulo.innerHTML = '<span class="spinner"></span>&nbsp;Convertendo&hellip;';
+
+  try {
+    // 2. Conversão Markdown → PDF na API mkd-pandoc
+    statusProgresso('Convertendo Markdown em PDF…');
+    let resposta;
+    try {
+      resposta = await fetch(cfg.endpoint + '/converter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': cfg.apiKey
+        },
+        body: JSON.stringify({ markdown: markdownFinal, formato: 'pdf' })
+      });
+    } catch (e) {
+      throw new Error('Não foi possível conectar à API em ' + cfg.endpoint +
+                      ' — verifique o endpoint e o CORS do servidor.');
+    }
+    if (!resposta.ok) throw new Error(await lerErroHttp(resposta, 'Conversão falhou'));
+
+    const pdfBytes = await resposta.arrayBuffer();
+    ultimoPdf = new Blob([pdfBytes], { type: 'application/pdf' });
+
+    // 3a. SML Storage — URL assinada de upload
+    statusProgresso('Solicitando URL de upload (SML Storage)…');
+    const headersSml = {
+      'Content-Type': 'application/json',
+      'x-api-key': cfg.smlApiKey
+    };
+    const r1 = await fetch(cfg.smlEndpoint + '/getUploadUrl', {
+      method: 'POST',
+      headers: headersSml,
+      body: JSON.stringify({
+        projeto: cfg.smlProjeto,
+        filename: ultimoNomeArquivo,
+        tag1: campos.disciplina || '',
+        tag2: campos.turma || '',
+        tag3: campos.ano || ''
+      })
+    });
+    const d1 = await r1.json().catch(() => ({}));
+    if (!r1.ok || !d1.uploadUrl) {
+      throw new Error('getUploadUrl: ' + (d1.error || 'HTTP ' + r1.status));
+    }
+
+    // 3b. PUT dos bytes do PDF na URL assinada
+    statusProgresso('Enviando PDF para o armazenamento…');
+    const r2 = await fetch(d1.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: ultimoPdf
+    });
+    if (!r2.ok) throw new Error('Upload do PDF falhou (HTTP ' + r2.status + ')');
+
+    // 3c. Confirmação — devolve a URL pública permanente
+    statusProgresso('Confirmando upload…');
+    const r3 = await fetch(cfg.smlEndpoint + '/confirmUpload', {
+      method: 'POST',
+      headers: headersSml,
+      body: JSON.stringify({ docId: d1.docId })
+    });
+    const d3 = await r3.json().catch(() => ({}));
+    if (!r3.ok || !d3.url) {
+      throw new Error('confirmUpload: ' + (d3.error || 'HTTP ' + r3.status));
+    }
+
+    // 4. Resultado
+    statusSucesso(d3.url, d3.size || ultimoPdf.size);
+  } catch (erro) {
+    const msg = erro.message || String(erro);
+    statusErro(msg);
+    erroEl.textContent = msg;
+    erroEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    rotulo.textContent = 'Converter para PDF';
+  }
+}
+
+$('btn-converter').addEventListener('click', converter);
+
+/* ════════════════════════════════════════════════════════════════
+   INICIALIZAÇÃO
+═════════════════════════════════════════════════════════════════ */
+const EXEMPLO = [
+  '---',
+  'turma: 1TACM1-M2',
+  'disciplina: Parasitologia',
+  'professor: Lucas Batista',
+  'capitulo: "1"',
+  'titulo: "O que é Parasitologia?"',
+  'subtitulo: "Conceitos e classificação"',
+  'unidade: Unidade 1',
+  'ano: "2025"',
+  '---',
+  '',
+  '## Introdução',
+  '',
+  'A **Parasitologia** estuda os organismos que vivem às custas de outros.',
+  '',
+  '::: conceito',
+  '**Parasitismo** é uma relação ecológica desarmônica onde o parasita',
+  'obtém benefício às custas do hospedeiro.',
+  ':::',
+  '',
+  '::: dica',
+  'O Hospedeiro **D**efinitivo tem o parasita **D**esenvolvido (adulto).',
+  ':::',
+  ''
+].join('\n');
+
+carregarConfig();
+editor.value = localStorage.getItem('mkd_last_md') || EXEMPLO;
+sincronizarCamposComYaml();
+atualizarPreview();
+atualizarCodigoBruto();
+statusOcioso();
+</script>
+</body>
+</html>
