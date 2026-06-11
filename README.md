@@ -53,7 +53,7 @@ Nginx, etc.).
 ## Estrutura do projeto
 
 ```
-mdk-pdf/
+mkd-pdf/
 ├── index.html        ← marcação da página (única entrada)
 ├── css/
 │   └── estilos.css   ← estilos da UI + aproximação visual do cetep.html
