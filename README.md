@@ -96,10 +96,12 @@ Em telas ≤ 768 px as colunas empilham (editor em cima, preview embaixo).
 | API Key (mkd-pandoc) | — |
 | SML Storage Endpoint | `https://us-east1-sml-storage.cloudfunctions.net` |
 | SML API Key | — |
-| SML Projeto | `mkd-pandoc` |
+| SML Projeto | `mkd-pdf` |
 
 As API keys têm botão 👁 para revelar/ocultar. **Salvar configurações**
 persiste tudo no `localStorage`; **Testar conexão** consulta `GET /saude`.
+O endpoint e o projeto da SML Storage já vêm pré-preenchidos com os
+valores padrão acima.
 
 ### Cabeçalho do documento
 

@@ -9,7 +9,7 @@
 const PADROES = {
   endpoint:    'http://localhost:8000',
   smlEndpoint: 'https://us-east1-sml-storage.cloudfunctions.net',
-  smlProjeto:  'mkd-pandoc'
+  smlProjeto:  'mkd-pdf'
 };
 const CAMPOS_FM = ['turma', 'disciplina', 'professor', 'capitulo',
                    'apontamento', 'titulo', 'subtitulo', 'unidade', 'ano'];
@@ -37,9 +37,10 @@ function carregarConfig() {
   try { cfg = JSON.parse(localStorage.getItem('mkd_config') || '{}'); } catch (e) {}
   $('cfg-endpoint').value     = cfg.endpoint    || '';
   $('cfg-apikey').value       = cfg.apiKey      || '';
-  $('cfg-sml-endpoint').value = cfg.smlEndpoint || '';
+  // SML endpoint e projeto vêm pré-preenchidos com os padrões
+  $('cfg-sml-endpoint').value = cfg.smlEndpoint || PADROES.smlEndpoint;
   $('cfg-sml-apikey').value   = cfg.smlApiKey   || '';
-  $('cfg-sml-projeto').value  = cfg.smlProjeto  || '';
+  $('cfg-sml-projeto').value  = cfg.smlProjeto  || PADROES.smlProjeto;
 }
 
 function salvarConfig() {
