@@ -7,7 +7,7 @@
 
 /* ── Constantes e estado ─────────────────────────────────────── */
 const PADROES = {
-  endpoint:    'http://localhost:8000',
+  endpoint:    'https://smtlab.duckdns.org/mkd',
   smlEndpoint: 'https://us-east1-sml-storage.cloudfunctions.net',
   smlProjeto:  'mkd-pdf'
 };
@@ -35,9 +35,9 @@ let contadorMermaid = 0;
 function carregarConfig() {
   let cfg = {};
   try { cfg = JSON.parse(localStorage.getItem('mkd_config') || '{}'); } catch (e) {}
-  $('cfg-endpoint').value     = cfg.endpoint    || '';
+  // Endpoints e projeto vêm pré-preenchidos com os padrões
+  $('cfg-endpoint').value     = cfg.endpoint    || PADROES.endpoint;
   $('cfg-apikey').value       = cfg.apiKey      || '';
-  // SML endpoint e projeto vêm pré-preenchidos com os padrões
   $('cfg-sml-endpoint').value = cfg.smlEndpoint || PADROES.smlEndpoint;
   $('cfg-sml-apikey').value   = cfg.smlApiKey   || '';
   $('cfg-sml-projeto').value  = cfg.smlProjeto  || PADROES.smlProjeto;
