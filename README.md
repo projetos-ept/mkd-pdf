@@ -92,7 +92,7 @@ Em telas ≤ 768 px as colunas empilham (editor em cima, preview embaixo).
 
 | Campo | Padrão |
 |---|---|
-| Endpoint da API | `http://localhost:8000` |
+| Endpoint da API | `https://smtlab.duckdns.org/mkd` |
 | API Key (mkd-pandoc) | — |
 | SML Storage Endpoint | `https://us-east1-sml-storage.cloudfunctions.net` |
 | SML API Key | — |
@@ -100,8 +100,8 @@ Em telas ≤ 768 px as colunas empilham (editor em cima, preview embaixo).
 
 As API keys têm botão 👁 para revelar/ocultar. **Salvar configurações**
 persiste tudo no `localStorage`; **Testar conexão** consulta `GET /saude`.
-O endpoint e o projeto da SML Storage já vêm pré-preenchidos com os
-valores padrão acima.
+Os endpoints e o projeto já vêm pré-preenchidos com os valores padrão
+acima — basta informar as API keys.
 
 ### Cabeçalho do documento
 

@@ -645,6 +645,21 @@ details.secao .secao-body { padding: 14px 16px 16px; }
 }
 .status-bar .acoes { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 
+/* Botão ✕ para ocultar a barra de status */
+.btn-fechar-status {
+  border: none;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 9px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.btn-fechar-status:hover { background: rgba(0,0,0,.08); color: var(--texto); }
+
 /* Barra de progresso indeterminada */
 .progresso {
   flex: 1;

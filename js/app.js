@@ -7,7 +7,7 @@
 
 /* ── Constantes e estado ─────────────────────────────────────── */
 const PADROES = {
-  endpoint:    'http://localhost:8000',
+  endpoint:    'https://smtlab.duckdns.org/mkd',
   smlEndpoint: 'https://us-east1-sml-storage.cloudfunctions.net',
   smlProjeto:  'mkd-pdf'
 };
@@ -35,9 +35,9 @@ let contadorMermaid = 0;
 function carregarConfig() {
   let cfg = {};
   try { cfg = JSON.parse(localStorage.getItem('mkd_config') || '{}'); } catch (e) {}
-  $('cfg-endpoint').value     = cfg.endpoint    || '';
+  // Endpoints e projeto vêm pré-preenchidos com os padrões
+  $('cfg-endpoint').value     = cfg.endpoint    || PADROES.endpoint;
   $('cfg-apikey').value       = cfg.apiKey      || '';
-  // SML endpoint e projeto vêm pré-preenchidos com os padrões
   $('cfg-sml-endpoint').value = cfg.smlEndpoint || PADROES.smlEndpoint;
   $('cfg-sml-apikey').value   = cfg.smlApiKey   || '';
   $('cfg-sml-projeto').value  = cfg.smlProjeto  || PADROES.smlProjeto;
@@ -99,7 +99,9 @@ document.querySelectorAll('.btn-olho').forEach((btn) => {
 /* ════════════════════════════════════════════════════════════════
    FRONT MATTER YAML — leitura, geração e fusão
 ═════════════════════════════════════════════════════════════════ */
-const RE_YAML = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/;
+/* Tolerante a BOM (U+FEFF) e a linhas em branco antes do primeiro ---
+   (comum ao colar de chats/blocos de código). */
+const RE_YAML = /^﻿?\s*---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/;
 
 function lerFrontMatter(md) {
   const m = md.match(RE_YAML);
@@ -452,6 +454,16 @@ editor.addEventListener('input', () => {
   timerDebounce = setTimeout(aoMudarEditor, DEBOUNCE_MS);
 });
 
+/* Colar um documento completo (com front matter próprio) reseta os
+   overrides manuais — o YAML colado volta a mandar nos campos. */
+editor.addEventListener('paste', (e) => {
+  const texto = (e.clipboardData || window.clipboardData).getData('text');
+  if (/^﻿?\s*---[ \t]*\r?\n/.test(texto)) {
+    camposSujos.clear();
+    rodapesSujos.clear();
+  }
+});
+
 /* Tab dentro do editor insere 2 espaços em vez de mudar o foco */
 editor.addEventListener('keydown', (e) => {
   if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -591,6 +603,8 @@ $('btn-limpar-historico').addEventListener('click', () => {
 ═════════════════════════════════════════════════════════════════ */
 const statusBar = $('status-bar');
 
+$('btn-fechar-status').addEventListener('click', () => statusOcioso());
+
 function statusOcioso() {
   statusBar.className = 'status-bar';
   statusBar.classList.remove('visivel');
@@ -671,7 +685,7 @@ function formatarTamanho(bytes) {
 ═════════════════════════════════════════════════════════════════ */
 function slug(texto) {
   return (texto || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')

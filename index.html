@@ -43,7 +43,7 @@
         <div class="grid-2">
           <div class="campo full">
             <label for="cfg-endpoint">Endpoint da API</label>
-            <input type="url" id="cfg-endpoint" placeholder="http://localhost:8000">
+            <input type="url" id="cfg-endpoint" placeholder="https://smtlab.duckdns.org/mkd">
           </div>
           <div class="campo full">
             <label for="cfg-apikey">API Key (mkd-pandoc)</label>
@@ -215,6 +215,8 @@
   <div class="progresso" id="status-progresso" style="display:none;"></div>
   <a class="url-resultado" id="status-url" target="_blank" rel="noopener" style="display:none;"></a>
   <div class="acoes" id="status-acoes"></div>
+  <button type="button" class="btn-fechar-status" id="btn-fechar-status"
+          title="Ocultar barra de status" aria-label="Ocultar barra de status">&#x2715;</button>
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>
