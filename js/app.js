@@ -7,7 +7,7 @@
 
 /* ── Constantes e estado ─────────────────────────────────────── */
 const PADROES = {
-  endpoint:    'https://smtlab.duckdns.org/mkd',
+  endpoint:    'https://mkd-pandoc-actnonniaa-uc.a.run.app',
   smlEndpoint: 'https://us-east1-sml-storage.cloudfunctions.net',
   smlProjeto:  'mkd-pdf'
 };
