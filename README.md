@@ -92,7 +92,7 @@ Em telas ≤ 768 px as colunas empilham (editor em cima, preview embaixo).
 
 | Campo | Padrão |
 |---|---|
-| Endpoint da API | `https://smtlab.duckdns.org/mkd` |
+| Endpoint da API | `https://mkd-pandoc-actnonniaa-uc.a.run.app` |
 | API Key (mkd-pandoc) | — |
 | SML Storage Endpoint | `https://us-east1-sml-storage.cloudfunctions.net` |
 | SML API Key | — |
