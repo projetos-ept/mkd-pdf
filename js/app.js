@@ -627,10 +627,11 @@ function botaoAcao(rotulo, fn) {
   return b;
 }
 
-function statusSucesso(url, tamanho, formato) {
+function statusSucesso(url, tamanho, formato, notaExtra) {
   statusBar.className = 'status-bar visivel sucesso';
-  $('status-texto').textContent =
-    '✓ ' + formato.toUpperCase() + ' gerado — ' + formatarTamanho(tamanho);
+  let texto = '✓ ' + formato.toUpperCase() + ' gerado — ' + formatarTamanho(tamanho);
+  if (notaExtra) texto += ' — ' + notaExtra;
+  $('status-texto').textContent = texto;
   $('status-progresso').style.display = 'none';
   const a = $('status-url');
   if (url) { a.href = url; a.textContent = url; a.style.display = ''; }
@@ -677,11 +678,53 @@ function formatarTamanho(bytes) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   HTML AUTOCONTIDO — incorpora <img src="http(s)://..."> como base64
+   Só se aplica ao formato HTML (o PDF já é um binário autocontido).
+   Roda no browser: cada imagem depende do host de origem permitir
+   CORS para leitura via fetch(); falhando, a URL original é mantida
+   (degradação graciosa, sem interromper a conversão).
+═════════════════════════════════════════════════════════════════ */
+async function imagemParaDataUrl(url) {
+  const resposta = await fetch(url);
+  if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
+  const blob = await resposta.blob();
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolve(leitor.result);
+    leitor.onerror = () => reject(leitor.error || new Error('Falha ao ler a imagem'));
+    leitor.readAsDataURL(blob);
+  });
+}
+
+async function embutirImagensEmHtml(htmlTexto) {
+  const doc = new DOMParser().parseFromString(htmlTexto, 'text/html');
+  const imagens = Array.from(doc.querySelectorAll('img[src^="http://"], img[src^="https://"]'));
+  if (!imagens.length) return { html: htmlTexto, embutidas: 0, falhas: 0 };
+
+  let embutidas = 0, falhas = 0;
+  await Promise.allSettled(imagens.map(async (img) => {
+    try {
+      img.src = await imagemParaDataUrl(img.src);
+      embutidas++;
+    } catch (e) {
+      falhas++;   // mantém a URL original — o arquivo continua válido
+    }
+  }));
+
+  return {
+    html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML,
+    embutidas,
+    falhas
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════
    CONVERSÃO + UPLOAD (somente no clique do botão / Ctrl+Enter)
    1. POST {endpoint}/converter            → bytes do PDF/HTML
-   2. POST {sml}/getUploadUrl              → { uploadUrl, docId }
-   3. PUT  uploadUrl
-   4. POST {sml}/confirmUpload             → { url, size }
+   2. (se HTML) incorpora imagens em base64 → arquivo autocontido
+   3. POST {sml}/getUploadUrl              → { uploadUrl, docId }
+   4. PUT  uploadUrl
+   5. POST {sml}/confirmUpload             → { url, size }
 ═════════════════════════════════════════════════════════════════ */
 function slug(texto) {
   return (texto || '')
@@ -752,7 +795,18 @@ async function converter() {
     if (!resposta.ok) throw new Error(await lerErroHttp(resposta, 'Conversão falhou'));
 
     const bytes = await resposta.arrayBuffer();
-    ultimoArquivo = new Blob([bytes], { type: mime });
+    let infoImagens = null;
+
+    if (formato === 'html') {
+      // 2b. Incorpora as imagens do HTML como data URIs (base64)
+      statusProgresso('Incorporando imagens no HTML…');
+      const htmlOriginal = new TextDecoder('utf-8').decode(bytes);
+      const resultado = await embutirImagensEmHtml(htmlOriginal);
+      infoImagens = resultado;
+      ultimoArquivo = new Blob([resultado.html], { type: mime });
+    } else {
+      ultimoArquivo = new Blob([bytes], { type: mime });
+    }
 
     // 3a. SML Storage — URL assinada de upload
     statusProgresso('Solicitando URL de upload (SML Storage)…');
@@ -799,7 +853,21 @@ async function converter() {
 
     // 4. Resultado + histórico
     const tamanho = d3.size || ultimoArquivo.size;
-    statusSucesso(d3.url, tamanho, formato);
+    let notaImagens = '';
+    if (infoImagens && infoImagens.embutidas) {
+      notaImagens = infoImagens.embutidas + ' imagem' + (infoImagens.embutidas === 1 ? '' : 's') +
+        ' incorporada' + (infoImagens.embutidas === 1 ? '' : 's');
+      if (infoImagens.falhas) {
+        notaImagens += ' (' + infoImagens.falhas + ' não pôde' +
+          (infoImagens.falhas === 1 ? '' : 'ram') + ' ser incorporada' +
+          (infoImagens.falhas === 1 ? '' : 's') + ')';
+      }
+    } else if (infoImagens && infoImagens.falhas) {
+      notaImagens = infoImagens.falhas + ' imagem' + (infoImagens.falhas === 1 ? '' : 's') +
+        ' não pôde' + (infoImagens.falhas === 1 ? '' : 'ram') + ' ser incorporada' +
+        (infoImagens.falhas === 1 ? '' : 's');
+    }
+    statusSucesso(d3.url, tamanho, formato, notaImagens);
     adicionarHistorico({
       nome: ultimoNomeArquivo,
       url: d3.url,

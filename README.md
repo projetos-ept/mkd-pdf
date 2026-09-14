@@ -197,6 +197,7 @@ botão **Copiar**.
    Headers: X-API-Key
    Body: { "markdown": "...", "formato": "pdf" | "html" }
    → bytes do arquivo
+2b. Se formato = HTML: incorpora as imagens como base64 (ver abaixo)
 3. Upload para a SML Storage (3 passos)
    a) POST /getUploadUrl  { projeto, filename, tag1: disciplina,
                             tag2: turma, tag3: ano }  → { uploadUrl, docId }
@@ -208,6 +209,26 @@ botão **Copiar**.
 
 Se a conversão funcionar mas o upload falhar, o estado de erro ainda
 oferece o **Download** local do arquivo gerado, além de **Tentar novamente**.
+
+### HTML autocontido (imagens em base64)
+
+Quando o formato de saída é **HTML**, a página baixa o HTML gerado pela
+API, localiza todas as tags `<img src="http(s)://...">` e substitui cada
+`src` por um data URI (`data:image/...;base64,...`) obtido via `fetch` no
+próprio browser — antes de baixar o arquivo e antes de enviá-lo à SML
+Storage. O resultado é um único arquivo `.html` que não depende mais dos
+hosts originais das imagens para ser exibido.
+
+- Cada imagem é buscada e convertida de forma independente; se uma
+  falhar (404, rede, ou o host não permitir CORS para leitura via
+  `fetch`), a URL original é mantida nessa imagem específica — a
+  conversão não é interrompida. A barra de status informa quantas
+  imagens foram incorporadas e, se houver, quantas não puderam ser.
+- **Pré-requisito:** o servidor da imagem precisa responder ao `fetch`
+  com um cabeçalho `Access-Control-Allow-Origin` permissivo. Hosts como
+  `raw.githubusercontent.com` já atendem a esse requisito.
+- O PDF não passa por essa etapa — o próprio Chromium já o gera como um
+  binário autocontido.
 
 ---
 
